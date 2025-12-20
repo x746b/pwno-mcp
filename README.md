@@ -1,3 +1,5 @@
+# For building the cloud mcp-pwn box see INSTALL.md - 
+---
 # `pwno-mcp`
 
 stateful system for autonomous `pwn` and binary research, designed for LLMs agents.
