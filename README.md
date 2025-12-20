@@ -1,6 +1,6 @@
 # NOTE:
 
-_For building the cloud mcp-pwn box see INSTALL.md-_
+_For building the cloud mcp-pwn box see INSTALL.md_
 
 ---
 # `pwno-mcp`
