@@ -1,3 +1,5 @@
+# For building the cloud mcp-pwn box see INSTALL.md
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/pwno-mcp-dark.png">
   <source media="(prefers-color-scheme: light)" srcset="assets/pwno-mcp-light.png">
