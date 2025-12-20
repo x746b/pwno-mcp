@@ -4,7 +4,7 @@
 1 GB Memory / 1 Intel vCPU / 35 GB Disk / Ubuntu 24.04 (LTS) x64 ~ 8 EUR/month
 
 ## Ubuntu packages installation
-apt update && apt install git docker.io docker-compose python3 python3-pwntools npm
+`apt update && apt install git docker.io docker-compose python3 python3-pwntools npm`
 
 ## pwno-mcp installation && test
 ```
