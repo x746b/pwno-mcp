@@ -7,7 +7,7 @@
 `apt update && apt install git docker.io docker-compose python3 python3-pwntools npm`
 
 ## pwno-mcp installation && test
-```
+```bash
 cd /opt
 git clone https://github.com/pwno-io/pwno-mcp
 
@@ -35,12 +35,12 @@ pwndbg>
 ```
 
 ## Install claude code
-```
+```bash
 npm install -g @anthropic-ai/claude-code
 ```
 
 ## Adding MCP to claude
-```
+
 ```bash
 claude mcp add pwndbg-mcp --scope user -- \
   docker run --rm -i \
@@ -56,7 +56,7 @@ claude mcp add pwndbg-mcp --scope user -- \
     run python -m pwnomcp --stdio
 ```
 ### test
-```
+```bash
 claude
 /mcp 
 
@@ -67,8 +67,6 @@ claude
 ```
 
 ## Adding MCP to codex
-```
-## Codex
 ```bash
 codex mcp add pwndbg-mcp -- \
   docker run --rm -i \
@@ -84,11 +82,10 @@ codex mcp add pwndbg-mcp -- \
     run python -m pwnomcp --stdio
 ```
 
-
 ## Success
 
 Example of outputs seen in claude code:
-```
+```bash
 ● MCPSearch(Search MCP tools: "select:mcp__pwndbg-mcp__set_file")
   ⎿  Found 1 tool
 
