@@ -256,7 +256,15 @@ Example of outputs seen in claude code:
 ...
 ```
 
-### codex
+## codex
+
+### Install
+```bash
+wget https://github.com/openai/codex/releases/download/rust-v0.76.0/codex-x86_64-unknown-linux-gnu.tar.gz
+tar -xvzf codex-x86_64-unknown-linux-gnu.tar.gz && mv codex-x86_64-unknown-linux-gnu /usr/local/bin/codex
+```
+
+### Activation codex without browser:
 ```bash
 ssh -L 1455:localhost:1455 -i ubupwn root@ubupwn
 ```
@@ -279,7 +287,6 @@ codex mcp add pwndbg-mcp -- \
 
 ### Test:
 ```bash
-
 /mcp
 
 🔌  MCP Tools
