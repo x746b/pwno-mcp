@@ -302,3 +302,47 @@ kill_process, list_processes, list_python_packages, pwncli, return_from_function
     • Resource templates: (none)
 ```
 
+codex using pwno-mcp:
+
+```bash
+Called pwndbg-mcp.run_command({"command":"ls -la /workspace/challenge","timeout":10})
+  └ {"success": true, "command": "ls -la /workspace/challenge", "returncode": 0, "stdout": "total 2448\ndrwxr-xr-x 3 root root    4096 Dec 21 20:14 .\ndrwxr-xr-x 4 root root    4096 Dec 21 20:13 ..\ndrwxr-xr-x 2 root root    4096 Dec 21
+        20:14 __pycache__\n-rwxr-xr-x 1 root root   20704 Dec 20 20:53 ctf\n-rwxr-xr-x 1 root root  240936 Dec 20 20:53 ld-2.35.so\n-rw-r--r-- 1 root root 2216304 Dec 20 20:53 libc.so.6\n-rw-r--r-- 1 root root      29 Dec 20 22:42
+        password\n-rw-r--r-- 1 root root    2192 Dec 20 20:53 server.py\n", "stderr": "", "cwd": "/workspace"}
+
+• I’m piecing together a plan to exploit a local service with pwntools and pwndbg MCP, focusing on leveraging tcache poisoning despite safe-linking in glibc 2.35. I want to get arbitrary write by crafting fake chunks on the heap and use byte-wise writes through negative indexing. 
+
+  Setting breakpoint at vuln function
+
+• Called pwndbg-mcp.set_file({"binary_path":"/workspace/challenge/ctf"})
+  └ {"command": "-file-exec-and-symbols /workspace/challenge/ctf", "responses": [{"type": "result", "message": "done", "payload": null, "token": null, "stream": "stdout"}], "success": true, "state": "stopped"}
+
+• Called pwndbg-mcp.set_breakpoint({"location":"vuln"})
+  └ {"command": "-break-insert vuln", "responses": [{"type": "result", "message": "done", "payload": {"bkpt": {"number": "1", "type": "breakpoint", "disp": "keep", "enabled": "y", "addr": "0x00000000000011f2", "at": "<vuln+4>", "thread-
+        groups": ["i1"], "times": "0", "original-location": "vuln"}}, "token": null, "stream": "stdout"}], "success": true, "state": "stopped"}
+
+• Called pwndbg-mcp.run({"args":"4096","start":false})
+  └ {"command": "-exec-run", "responses": [{"type": "notify", "message": "thread-group-started", "payload": {"id": "i1", "pid": "33"}, "token": null, "stream": "stdout"}, {"type": "notify", "message": "thread-created", "payload": {"id":
+        "1", "group-id": "i1"}, "token": null, "stream": "stdout"}, {"type": "notify", "message": "breakpoint-modified", "payload": {"bkpt": {"number": "1", "type": "breakpoint", "disp": "keep", "enabled": "y", "addr":
+        "0x00005555555551f2", "at": "<vuln+4>", "thread-groups": ["i1"], "times": "0", "original-location": "vuln"}}, "token": null, "stream": "stdout"}, {"type": "notify", "message": "library-loaded", "payload": {"id": "./ld-2.35.so",
+        "target-name": "./ld-2.35.so", "host-name": "./ld-2.35.so", "symbols-loaded": "0", "thread-group": "i1", "ranges": [{"from": "0x00007ffff7fc5090", "to": "0x00007ffff7fee335"}]}, "token": null, "stream": "stdout"}, {"type":
+        "result", "message": "running", "payload": null, "token": null, "stream": "stdout"}, {"type": "notify", "message": "running", "payload": {"thread-id": "all"}, "token": null, "stream": "stdout"}, {"type": "notify", "message":
+        "library-loaded", "payload": {"id": "./lib...
+
+• Called pwndbg-mcp.execute({"command":"info proc mappings"})
+  └ {"command": "info proc mappings", "responses": [{"type": "log", "message": null, "payload": "info proc mappings\n", "stream": "stdout"}, {"type": "console", "message": null, "payload": "process 33\n", "stream": "stdout"}, {"type":
+        "console", "message": null, "payload": "Mapped address spaces:\n\n", "stream": "stdout"}, {"type": "console", "message": null, "payload": "Start Addr         End Addr           Size               Offset             Perms File \n",
+        "stream": "stdout"}, {"type": "console", "message": null, "payload": "0x0000555555554000 0x0000555555555000 0x1000             0x0                r--p  /workspace/challenge/ctf \n", "stream": "stdout"}, {"type": "console",
+        "message": null, "payload": "0x0000555555555000 0x0000555555556000 0x1000             0x1000             r-xp  /workspace/challenge/ctf \n", "stream": "stdout"}, {"type": "console", "message": null, "payload":
+        "0x0000555555556000 0x0000555555557000 0x1000             0x2000             r--p  /workspace/challenge/ctf \n", "stream": "stdout"}, {"type": "console", "message": null, "payload": "0x0000555555557000 0x0000555555558000
+        0x1000             0x2000         ...
+
+• Called pwndbg-mcp.execute({"command":"p/x $rbp"})
+  └ {"command": "p/x $rbp", "responses": [{"type": "log", "message": null, "payload": "p/x $rbp\n", "stream": "stdout"}, {"type": "console", "message": null, "payload": "$1 = 0x7fffffffe9b0\n", "stream": "stdout"}, {"type": "result",
+        "message": "done", "payload": null, "token": null, "stream": "stdout"}], "success": true, "state": "stopped"}
+
+• Called pwndbg-mcp.execute_python_code({"code":"stack_high=0x7ffffffff000\nrbp=0x7fffffffe9b0\nsaved=rbp+8\nprint(hex(stack_high-saved))"})
+  └ {"success": true, "script": "/tmp/pwno_script_efrzg5rc.py", "venv_path": "/tmp/pwno_python_workspace/shared_venv", "returncode": 0, "stdout": "0x648\n", "stderr": "", "command": "/tmp/pwno_python_workspace/shared_venv/bin/python /tmp/
+        pwno_script_efrzg5rc.py", "cwd": "/workspace", "code_preview": "stack_high=0x7ffffffff000\nrbp=0x7fffffffe9b0\nsaved=rbp+8\nprint(hex(stack_high-saved))"}
+...
+```
