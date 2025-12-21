@@ -302,8 +302,7 @@ kill_process, list_processes, list_python_packages, pwncli, return_from_function
     • Resource templates: (none)
 ```
 
-codex using pwno-mcp:
-
+codex when using pwno-mc now:
 ```bash
 Called pwndbg-mcp.run_command({"command":"ls -la /workspace/challenge","timeout":10})
   └ {"success": true, "command": "ls -la /workspace/challenge", "returncode": 0, "stdout": "total 2448\ndrwxr-xr-x 3 root root    4096 Dec 21 20:14 .\ndrwxr-xr-x 4 root root    4096 Dec 21 20:13 ..\ndrwxr-xr-x 2 root root    4096 Dec 21
@@ -345,4 +344,78 @@ Called pwndbg-mcp.run_command({"command":"ls -la /workspace/challenge","timeout"
   └ {"success": true, "script": "/tmp/pwno_script_efrzg5rc.py", "venv_path": "/tmp/pwno_python_workspace/shared_venv", "returncode": 0, "stdout": "0x648\n", "stderr": "", "command": "/tmp/pwno_python_workspace/shared_venv/bin/python /tmp/
         pwno_script_efrzg5rc.py", "cwd": "/workspace", "code_preview": "stack_high=0x7ffffffff000\nrbp=0x7fffffffe9b0\nsaved=rbp+8\nprint(hex(stack_high-saved))"}
 ...
+```
+## Adding MCP to gemini-cli
+
+```bash
+gemini mcp add pwndbg-mcp docker \
+  run --rm -i \
+  --user root \
+  --cap-add=SYS_PTRACE \
+  --cap-add=SYS_ADMIN \
+  --security-opt seccomp=unconfined \
+  --security-opt apparmor=unconfined \
+  -e PYTHONUNBUFFERED=1 \
+  -v /root/ctf:/workspace \
+  --entrypoint uv \
+  pwno-mcp:latest \
+  run python -m pwnomcp --stdio
+MCP server "pwndbg-mcp" added to project settings. (stdio)
+```
+
+```bash
+gemini
+/mcp
+
+Configured MCP servers:
+
+🟢 pwndbg-mcp - Ready (28 tools)
+  Tools:
+  - attach
+  - checkoutput
+  - execute
+  - execute_python_code
+  - execute_python_script
+  - fetch_repo
+  - finish
+  - get_context
+  - get_decompiled_code
+  - get_memory
+  - get_process
+  - get_retdec_status
+  - get_session_info
+  - install_python_packages
+  - jump
+  - kill_process
+  - list_processes
+  - list_python_packages
+  - pwncli
+  - return_from_function
+  - run
+  - run_command
+  - sendinput
+  - set_breakpoint
+  - set_file
+  - spawn_process
+  - step_control
+  - until
+```
+
+## Adding MCP to gemini-cli running on local KALI
+```bash
+gemini mcp add pwndbg-mcp ssh \
+  -i /home/kali/ubupwn \
+  -T root@ubupwn \
+  docker run --rm -i \
+    --user root \
+    --cap-add=SYS_PTRACE \
+    --cap-add=SYS_ADMIN \
+    --security-opt seccomp=unconfined \
+    --security-opt apparmor=unconfined \
+    -e PYTHONUNBUFFERED=1 \
+    -v /root/ctf:/workspace \
+    --entrypoint uv \
+    pwno-mcp:latest \
+    run python -m pwnomcp --stdio
+MCP server "pwndbg-mcp" added to project settings. (stdio)
 ```
