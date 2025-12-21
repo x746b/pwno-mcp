@@ -66,22 +66,6 @@ claude
  ❯ 1. pwndbg-mcp  ✔ connected · Enter to view details
 ```
 
-## Adding MCP to codex
-```bash
-codex mcp add pwndbg-mcp -- \
-  docker run --rm -i \
-    --user root \
-    --cap-add=SYS_PTRACE \
-    --cap-add=SYS_ADMIN \
-    --security-opt seccomp=unconfined \
-    --security-opt apparmor=unconfined \
-    -e PYTHONUNBUFFERED=1 \
-    -v /root/ctf:/workspace \
-    --entrypoint uv \
-    pwno-mcp:latest \
-    run python -m pwnomcp --stdio
-```
-
 ## Success
 
 Example of outputs seen in claude code:
@@ -270,5 +254,44 @@ Example of outputs seen in claude code:
        }
      }
 ...
+```
+
+### codex
+```bash
+ssh -L 1455:localhost:1455 -i ubupwn root@ubupwn
+```
+
+## Adding MCP to codex
+```bash
+codex mcp add pwndbg-mcp -- \
+  docker run --rm -i \
+    --user root \
+    --cap-add=SYS_PTRACE \
+    --cap-add=SYS_ADMIN \
+    --security-opt seccomp=unconfined \
+    --security-opt apparmor=unconfined \
+    -e PYTHONUNBUFFERED=1 \
+    -v /root/ctf:/workspace \
+    --entrypoint uv \
+    pwno-mcp:latest \
+    run python -m pwnomcp --stdio
+```
+
+### Test:
+```bash
+
+/mcp
+
+🔌  MCP Tools
+
+  • pwndbg-mcp
+    • Status: enabled
+    • Auth: Unsupported
+    • Command: docker run --rm -i --user root --cap-add=SYS_PTRACE --cap-add=SYS_ADMIN --security-opt seccomp=unconfined --security-opt apparmor=unconfined -e PYTHONUNBUFFERED=1 -v /root/ctf:/workspace --entrypoint uv pwno-mcp:latest run
+python -m pwnomcp --stdio
+    • Tools: attach, checkoutput, execute, execute_python_code, execute_python_script, fetch_repo, finish, get_context, get_decompiled_code, get_memory, get_process, get_retdec_status, get_session_info, install_python_packages, jump,
+kill_process, list_processes, list_python_packages, pwncli, return_from_function, run, run_command, sendinput, set_breakpoint, set_file, spawn_process, step_control, until
+    • Resources: (none)
+    • Resource templates: (none)
 ```
 
