@@ -1,6 +1,9 @@
 # NOTE:
 
-_For building the cloud mcp-pwn box see INSTALL.md_
+- For building the cloud mcp-pwn box see INSTALL.md
+- For local installation without container I added INSTALL_local.md
+
+== xtk ==
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/pwno-mcp-dark.png">
