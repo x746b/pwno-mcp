@@ -1,7 +1,7 @@
 # NOTE:
 
 - For building the cloud mcp-pwn box see INSTALL.md
-- For local installation without container I added INSTALL_local.md
+- For local installation without container I added INSTALL-local.md
 
 == xtk ==
 
