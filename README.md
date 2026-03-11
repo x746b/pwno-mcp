@@ -5,11 +5,6 @@
 
 == xtk ==
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/pwno-mcp-dark.png">
-  <source media="(prefers-color-scheme: light)" srcset="assets/pwno-mcp-light.png">
-  <img alt="pwno-mcp banner" src="assets/pwno-mcp-light.png">
-</picture>
 
 <p align="center">stateful system for autonomous <code>pwn</code> and binary research, designed for LLMs agents.</p>
 
