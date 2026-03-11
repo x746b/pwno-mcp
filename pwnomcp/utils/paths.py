@@ -8,7 +8,7 @@ import re
 import tempfile
 from typing import Optional
 
-DEFAULT_WORKSPACE = "/workspace"
+DEFAULT_WORKSPACE = os.environ.get("PWNO_WORKSPACE", "/workspace")
 DEFAULT_RUNTIME_ROOT = os.environ.get(
     "PWNO_RUNTIME_ROOT", os.path.join(tempfile.gettempdir(), "pwno")
 )

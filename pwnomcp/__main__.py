@@ -2,6 +2,16 @@
 Entry point for Pwno MCP server
 """
 
+import os
+import sys
+
+# --workspace must be set BEFORE any pwnomcp imports, because
+# DEFAULT_WORKSPACE is evaluated at import time by every module.
+for _i, _arg in enumerate(sys.argv[:-1]):
+    if _arg == "--workspace":
+        os.environ["PWNO_WORKSPACE"] = sys.argv[_i + 1]
+        break
+
 import argparse
 
 from pwnomcp.runtime import run_http, run_stdio
@@ -37,6 +47,11 @@ def _parse_args() -> argparse.Namespace:
         help="URL path for the HTTP transport (default: /mcp)",
     )
     parser.add_argument(
+        "--workspace",
+        default=None,
+        help="Workspace root directory (default: $PWNO_WORKSPACE or /workspace)",
+    )
+    parser.add_argument(
         "--stdio",
         action="store_true",
         help="Run using stdio transport (default is HTTP)",
@@ -46,6 +61,7 @@ def _parse_args() -> argparse.Namespace:
 
 if __name__ == "__main__":
     cli_args = _parse_args()
+
     if cli_args.stdio:
         run_stdio()
     else:
