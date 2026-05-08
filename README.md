@@ -92,3 +92,5 @@ See [README_orig.md](README_orig.md) for the full upstream documentation includi
 ## Upstream
 
 Synced with [pwno-io/pwno-mcp](https://github.com/pwno-io/pwno-mcp). Original project by [Pwno Team](https://pwno.io).
+
+[![DigitalOcean Referral Badge](https://web-platforms.sfo2.cdn.digitaloceanspaces.com/WWW/Badge%201.svg)](https://www.digitalocean.com/?refcode=3afc1c808652&utm_campaign=Referral_Invite&utm_medium=Referral_Program&utm_source=badge)
