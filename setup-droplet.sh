@@ -161,6 +161,7 @@ dpkg --add-architecture i386
 apt-get update -qq
 apt-get install -y --no-install-recommends \
   curl wget git vim nano file sudo unzip ca-certificates jq ripgrep less procps \
+  cpio gzip xz-utils zstd bsdextrautils bc kmod dwarves \
   tmux zsh zsh-autosuggestions zsh-syntax-highlighting \
   build-essential gcc g++ clang make cmake bison flex gcc-multilib binutils binutils-multiarch \
   gdb gdbserver gdb-multiarch lldb strace ltrace patchelf elfutils libc6-dbg \
@@ -589,6 +590,9 @@ if ! command -v uv &>/dev/null; then
   export PATH="$HOME/.local/bin:$PATH"
 else
   echo "uv already installed, skipping"
+fi
+if [[ -x "$HOME/.local/bin/uv" ]]; then
+  ln -sf "$HOME/.local/bin/uv" /usr/local/bin/uv
 fi
 
 # ── 6. Clone & set up pwno-mcp ──────────────────────────────────────
