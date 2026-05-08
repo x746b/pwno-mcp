@@ -16,9 +16,9 @@
 #   5. Installs uv (Python package manager) + Python 3.12
 #   6. Clones & sets up pwno-mcp with all dependencies
 #   7. Creates shared Python venv with pwntools/ropper/pwnocli
-#   8. Installs Claude Code
-#   9. Configures pwno-mcp as systemd service
-#  10. Registers pwno-mcp as Claude Code MCP server (stdio, no docker)
+#   8. Configures pwno-mcp as systemd service
+#   9. Installs/configures Codex CLI by default
+#  10. Optionally installs/configures Claude Code
 #  11. Creates /root/ctf workspace directory
 # ──────────────────────────────────────────────────────────────────────
 set -euo pipefail
@@ -30,8 +30,78 @@ WORKSPACE="/root/ctf"
 PWNO_USER="root"          # run as root for ptrace/debugging ease on CTF box
 PWNO_HOST="127.0.0.1"     # bind locally; access via SSH tunnel
 PWNO_PORT="5500"
+CODEX_HOME="${CODEX_HOME:-/root/.codex}"
+PWNINIT_VERSION="${PWNINIT_VERSION:-3.3.1}"
+INSTALL_CODEX="${INSTALL_CODEX:-}"
+INSTALL_CLAUDE="${INSTALL_CLAUDE:-}"
 
 log() { printf '\n\033[1;36m>>> %s\033[0m\n' "$*"; }
+
+prompt_cli_selection() {
+  if [[ -n "$INSTALL_CODEX" || -n "$INSTALL_CLAUDE" ]]; then
+    INSTALL_CODEX="${INSTALL_CODEX:-1}"
+    INSTALL_CLAUDE="${INSTALL_CLAUDE:-0}"
+    return
+  fi
+
+  if [[ -t 0 ]]; then
+    echo ""
+    echo "Which agent CLI should be installed/configured?"
+    echo "  1) Codex CLI (default)"
+    echo "  2) Claude Code"
+    echo "  3) Both"
+    echo "  4) None"
+    read -r -p "Choice [1]: " cli_choice
+    case "${cli_choice:-1}" in
+      1) INSTALL_CODEX=1; INSTALL_CLAUDE=0 ;;
+      2) INSTALL_CODEX=0; INSTALL_CLAUDE=1 ;;
+      3) INSTALL_CODEX=1; INSTALL_CLAUDE=1 ;;
+      4) INSTALL_CODEX=0; INSTALL_CLAUDE=0 ;;
+      *) INSTALL_CODEX=1; INSTALL_CLAUDE=0 ;;
+    esac
+  else
+    # Non-interactive bootstrap should not hang. Prefer Codex for this setup.
+    INSTALL_CODEX=1
+    INSTALL_CLAUDE=0
+  fi
+}
+
+append_toml_section_once() {
+  local file="$1"
+  local section="$2"
+  local body="$3"
+
+  mkdir -p "$(dirname "$file")"
+  touch "$file"
+  if ! grep -Eq "^\[$section\]$" "$file"; then
+    {
+      echo ""
+      echo "[$section]"
+      printf '%s\n' "$body"
+    } >> "$file"
+  fi
+}
+
+prepend_toml_key_once() {
+  local file="$1"
+  local key="$2"
+  local line="$3"
+  local tmp_file
+
+  mkdir -p "$(dirname "$file")"
+  touch "$file"
+  if ! grep -Eq "^${key}[[:space:]]*=" "$file"; then
+    tmp_file="$(mktemp)"
+    {
+      printf '%s\n' "$line"
+      cat "$file"
+    } > "$tmp_file"
+    install -m 0644 "$tmp_file" "$file"
+    rm -f "$tmp_file"
+  fi
+}
+
+prompt_cli_selection
 
 # ── 0. Swap (needed on 1GB droplets) ─────────────────────────────────
 log "Setting up swap"
@@ -54,10 +124,11 @@ dpkg --add-architecture i386
 
 apt-get update -qq
 apt-get install -y --no-install-recommends \
-  curl wget git vim nano file sudo unzip ca-certificates \
+  curl wget git vim nano file sudo unzip ca-certificates jq ripgrep less procps \
   tmux zsh zsh-autosuggestions zsh-syntax-highlighting \
-  build-essential gcc g++ clang make cmake bison flex gcc-multilib \
+  build-essential gcc g++ clang make cmake bison flex gcc-multilib binutils binutils-multiarch \
   gdb gdbserver gdb-multiarch lldb strace ltrace patchelf elfutils libc6-dbg \
+  socat netcat-openbsd \
   qemu-system-x86 qemu-user qemu-user-binfmt \
   python3 python3-pip python3-venv python3-dev python3-setuptools \
   pkg-config libffi-dev libssl-dev \
@@ -66,7 +137,7 @@ apt-get install -y --no-install-recommends \
   libc6-dbg:i386 \
   libssl3:i386 libncurses6:i386 libreadline8:i386 libtinfo6:i386 \
   libglib2.0-dev libfdt-dev libpixman-1-dev zlib1g-dev \
-  nodejs
+  nodejs npm
 
 # ── 2. Shell config (zsh + tmux) ─────────────────────────────────────
 log "Configuring zsh and tmux"
@@ -437,10 +508,22 @@ TMUXCONF
 
 # ── 3. pwndbg ───────────────────────────────────────────────────────
 log "Installing pwndbg"
-if ! gdb -q -batch -ex "pi import pwndbg; print('ok')" 2>/dev/null | grep -q ok; then
-  curl -qsL 'https://install.pwndbg.re' | sh -s -- -t pwndbg-gdb
-else
+if command -v pwndbg-gdb &>/dev/null || command -v pwndbg &>/dev/null || \
+   gdb -q -batch -ex "pi import pwndbg; print('ok')" 2>/dev/null | grep -q ok; then
   echo "pwndbg already installed, skipping"
+else
+  curl -qsL 'https://install.pwndbg.re' | sh -s -- -t pwndbg-gdb
+  if command -v pwndbg-gdb &>/dev/null && ! command -v pwndbg &>/dev/null; then
+    ln -sf "$(command -v pwndbg-gdb)" /usr/local/bin/pwndbg
+  fi
+fi
+
+if command -v pwndbg-gdb &>/dev/null; then
+  echo "pwndbg wrapper: $(command -v pwndbg-gdb)"
+elif command -v pwndbg &>/dev/null; then
+  echo "pwndbg wrapper: $(command -v pwndbg)"
+else
+  echo "pwndbg install did not expose a wrapper in PATH; check installer output"
 fi
 
 # ── 4. pwninit ───────────────────────────────────────────────────────
@@ -448,13 +531,19 @@ log "Installing pwninit"
 if ! command -v pwninit &>/dev/null; then
   ARCH=$(uname -m)
   if [[ "$ARCH" == "x86_64" ]]; then
-    wget -q https://github.com/io12/pwninit/releases/download/3.3.1/pwninit -O /usr/local/bin/pwninit
-    chmod +x /usr/local/bin/pwninit
+    tmp_pwninit="$(mktemp)"
+    curl -fsSL "https://github.com/io12/pwninit/releases/download/${PWNINIT_VERSION}/pwninit" -o "$tmp_pwninit"
+    install -m 0755 "$tmp_pwninit" /usr/local/bin/pwninit
+    rm -f "$tmp_pwninit"
   else
     echo "pwninit binary not available for $ARCH, skipping"
   fi
 else
   echo "pwninit already installed, skipping"
+fi
+
+if command -v pwninit &>/dev/null; then
+  pwninit --version 2>/dev/null || true
 fi
 
 # ── 5. uv (Python package manager) ──────────────────────────────────
@@ -519,6 +608,7 @@ WorkingDirectory=$PWNO_DIR
 Environment=PYTHONPATH=$PWNO_DIR
 Environment=UV_PROJECT_ENVIRONMENT=$PWNO_DIR/.venv
 Environment=PWNO_WORKSPACE=$WORKSPACE
+Environment=PATH=/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ExecStart=$PWNO_DIR/.venv/bin/python -m pwnomcp --host $PWNO_HOST --port $PWNO_PORT --workspace $WORKSPACE
 Restart=on-failure
 RestartSec=2
@@ -531,32 +621,47 @@ systemctl daemon-reload
 systemctl enable pwnomcp
 systemctl start pwnomcp || echo "Service start failed — check: journalctl -u pwnomcp -e"
 
-# ── 10. Claude Code ─────────────────────────────────────────────────
-log "Installing Claude Code"
-if ! command -v claude &>/dev/null; then
-  curl -fsSL https://claude.ai/install.sh | bash
-else
-  echo "Claude Code already installed, skipping"
+# ── 10. Codex CLI ────────────────────────────────────────────────────
+if [[ "$INSTALL_CODEX" == "1" ]]; then
+  log "Installing Codex CLI"
+  if ! command -v codex &>/dev/null; then
+    npm install -g @openai/codex
+  else
+    echo "Codex CLI already installed, skipping"
+  fi
+
+  log "Configuring Codex MCP"
+  mkdir -p "$CODEX_HOME"
+
+  # This droplet is an intentionally disposable CTF/debug box.
+  prepend_toml_key_once "$CODEX_HOME/config.toml" "approval_policy" 'approval_policy = "never"'
+  prepend_toml_key_once "$CODEX_HOME/config.toml" "sandbox_mode" 'sandbox_mode = "danger-full-access"'
+  append_toml_section_once "$CODEX_HOME/config.toml" "mcp_servers.pwno-mcp" "url = \"http://127.0.0.1:$PWNO_PORT/mcp\""
 fi
 
-# ── 11. Register pwno-mcp as MCP server in Claude Code (stdio) ──────
-log "Registering pwno-mcp MCP server in Claude Code"
+# ── 11. Claude Code (optional) ───────────────────────────────────────
+# Claude is disabled by default for this workflow. To enable it:
+#   INSTALL_CLAUDE=1 ./setup-droplet.sh
+if [[ "$INSTALL_CLAUDE" == "1" ]]; then
+  log "Installing Claude Code"
+  if ! command -v claude &>/dev/null; then
+    curl -fsSL https://claude.ai/install.sh | bash
+  else
+    echo "Claude Code already installed, skipping"
+  fi
 
-# Create the MCP config directory if needed
-mkdir -p "$HOME/.claude"
+  log "Registering pwno-mcp MCP server in Claude Code"
+  mkdir -p "$HOME/.claude"
 
-# Add pwno-mcp as a user-scoped stdio MCP server
-# Using direct python invocation (no docker)
-claude mcp add pwno-mcp --scope user -t stdio -- \
-  "$PWNO_DIR/.venv/bin/python" -m pwnomcp --stdio --workspace "$WORKSPACE" 2>/dev/null || \
-  echo "Claude MCP registration requires interactive shell — run manually:
-  claude mcp add pwno-mcp --scope user -t stdio -- \\
-    $PWNO_DIR/.venv/bin/python -m pwnomcp --stdio --workspace $WORKSPACE"
+  claude mcp add pwno-mcp --scope user -t stdio -- \
+    "$PWNO_DIR/.venv/bin/python" -m pwnomcp --stdio --workspace "$WORKSPACE" 2>/dev/null || \
+    echo "Claude MCP registration requires interactive shell — run manually:
+    claude mcp add pwno-mcp --scope user -t stdio -- \\
+      $PWNO_DIR/.venv/bin/python -m pwnomcp --stdio --workspace $WORKSPACE"
 
-# ── 12. Claude Code permissions ──────────────────────────────────────
-log "Setting Claude Code permissions"
-mkdir -p "$HOME/.claude"
-cat > "$HOME/.claude/settings.json" << 'SETTINGS'
+  log "Setting Claude Code permissions"
+  mkdir -p "$HOME/.claude"
+  cat > "$HOME/.claude/settings.json" << 'SETTINGS'
 {
   "permissions": {
     "allow": [
@@ -569,6 +674,7 @@ cat > "$HOME/.claude/settings.json" << 'SETTINGS'
   }
 }
 SETTINGS
+fi
 
 # ── Done ─────────────────────────────────────────────────────────────
 log "Setup complete!"
@@ -578,9 +684,18 @@ echo "  pwno-mcp logs:    journalctl -u pwnomcp -f"
 echo "  Workspace:        $WORKSPACE"
 echo "  HTTP endpoint:    http://$PWNO_HOST:$PWNO_PORT/mcp"
 echo ""
-echo "  To use with Claude Code:"
-echo "    cd $WORKSPACE && claude"
-echo "    /mcp  # verify pwno-mcp is connected"
+if [[ "$INSTALL_CODEX" == "1" ]]; then
+  echo "  To use with Codex CLI:"
+  echo "    cd $WORKSPACE && CODEX_HOME=$CODEX_HOME codex"
+  echo "    CODEX_HOME=$CODEX_HOME codex mcp list  # verify pwno-mcp is connected"
+  echo ""
+fi
+if [[ "$INSTALL_CLAUDE" == "1" ]]; then
+  echo "  To use with Claude Code:"
+  echo "    cd $WORKSPACE && claude"
+  echo "    /mcp  # verify pwno-mcp is connected"
+  echo ""
+fi
 echo ""
 echo "  To access remotely via SSH tunnel:"
 echo "    ssh -L $PWNO_PORT:localhost:$PWNO_PORT root@<DROPLET_IP>"
