@@ -31,6 +31,7 @@ PWNO_USER="root"          # run as root for ptrace/debugging ease on CTF box
 PWNO_HOST="127.0.0.1"     # bind locally; access via SSH tunnel
 PWNO_PORT="5500"
 CODEX_HOME="${CODEX_HOME:-/root/.codex}"
+CODEX_VERSION="${CODEX_VERSION:-rust-v0.129.0}"
 PWNINIT_VERSION="${PWNINIT_VERSION:-3.3.1}"
 INSTALL_CODEX="${INSTALL_CODEX:-}"
 INSTALL_CLAUDE="${INSTALL_CLAUDE:-}"
@@ -101,6 +102,41 @@ prepend_toml_key_once() {
   fi
 }
 
+install_codex_release() {
+  local arch
+  local asset
+  local url
+  local tmp_dir
+  local archive
+  local extracted
+
+  arch="$(uname -m)"
+  case "$arch" in
+    x86_64) asset="codex-x86_64-unknown-linux-musl.tar.gz" ;;
+    aarch64|arm64) asset="codex-aarch64-unknown-linux-musl.tar.gz" ;;
+    *)
+      echo "Codex release binary not configured for architecture: $arch"
+      return 1
+      ;;
+  esac
+
+  url="https://github.com/openai/codex/releases/download/${CODEX_VERSION}/${asset}"
+  tmp_dir="$(mktemp -d)"
+  archive="$tmp_dir/$asset"
+
+  curl -fsSL "$url" -o "$archive"
+  tar -xzf "$archive" -C "$tmp_dir"
+  extracted="$(find "$tmp_dir" -maxdepth 1 -type f -name 'codex-*' -perm /111 | head -n 1)"
+  if [[ -z "$extracted" ]]; then
+    echo "Codex archive did not contain an executable binary"
+    rm -rf "$tmp_dir"
+    return 1
+  fi
+
+  install -m 0755 "$extracted" /usr/local/bin/codex
+  rm -rf "$tmp_dir"
+}
+
 prompt_cli_selection
 
 # ── 0. Swap (needed on 1GB droplets) ─────────────────────────────────
@@ -136,8 +172,7 @@ apt-get install -y --no-install-recommends \
   libc6:i386 libstdc++6:i386 libgcc-s1:i386 zlib1g:i386 lib32z1 \
   libc6-dbg:i386 \
   libssl3:i386 libncurses6:i386 libreadline8:i386 libtinfo6:i386 \
-  libglib2.0-dev libfdt-dev libpixman-1-dev zlib1g-dev \
-  nodejs npm
+  libglib2.0-dev libfdt-dev libpixman-1-dev zlib1g-dev
 
 # ── 2. Shell config (zsh + tmux) ─────────────────────────────────────
 log "Configuring zsh and tmux"
@@ -625,7 +660,7 @@ systemctl start pwnomcp || echo "Service start failed — check: journalctl -u p
 if [[ "$INSTALL_CODEX" == "1" ]]; then
   log "Installing Codex CLI"
   if ! command -v codex &>/dev/null; then
-    npm install -g @openai/codex
+    install_codex_release
   else
     echo "Codex CLI already installed, skipping"
   fi
