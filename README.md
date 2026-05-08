@@ -4,6 +4,8 @@ Fork of [pwno-io/pwno-mcp](https://github.com/pwno-io/pwno-mcp) adapted for **ba
 
 Runs GDB + pwndbg natively and exposes stateful debugging over MCP for agentic coding clients (Claude Code, Cursor, Codex, etc.).
 
+---
+
 ## Cloud pwn/rev dropplet
 
 https://github.com/x746b/pwno-mcp/blob/main/setup-droplet.sh
@@ -28,15 +30,11 @@ Recommended: **1 vCPU / 1GB RAM / 25GB disk** (~$6/month). The script creates 2G
 - **Shell**: zsh with syntax highlighting + autosuggestions, tmux with custom config
 - **Extras**: pwninit, patchelf, elfutils
 
-### After setup
+[![DigitalOcean Referral Badge](https://web-platforms.sfo2.cdn.digitaloceanspaces.com/WWW/Badge%201.svg)](https://www.digitalocean.com/?refcode=3afc1c808652&utm_campaign=Referral_Invite&utm_medium=Referral_Program&utm_source=badge)
 
-```bash
-ssh root@<DROPLET_IP>
-cd ~/ctf && claude
-/mcp   # verify pwno-mcp is connected
-```
+---
 
-## Key Differences from Upstream
+## Differences from Upstream
 
 | Feature | Upstream | This fork |
 |---------|----------|-----------|
@@ -95,4 +93,3 @@ See [README_orig.md](README_orig.md) for the full upstream documentation includi
 
 Synced with [pwno-io/pwno-mcp](https://github.com/pwno-io/pwno-mcp). Original project by [Pwno Team](https://pwno.io).
 
-[![DigitalOcean Referral Badge](https://web-platforms.sfo2.cdn.digitaloceanspaces.com/WWW/Badge%201.svg)](https://www.digitalocean.com/?refcode=3afc1c808652&utm_campaign=Referral_Invite&utm_medium=Referral_Program&utm_source=badge)
