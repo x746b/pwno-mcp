@@ -4,7 +4,9 @@ Fork of [pwno-io/pwno-mcp](https://github.com/pwno-io/pwno-mcp) adapted for **ba
 
 Runs GDB + pwndbg natively and exposes stateful debugging over MCP for agentic coding clients (Claude Code, Cursor, Codex, etc.).
 
-## One-Command Setup
+## Cloud pwn/rev dropplet
+
+https://github.com/x746b/pwno-mcp/blob/main/setup-droplet.sh
 
 Provision a fresh Ubuntu 24.04 droplet (DigitalOcean, etc.) as a fully configured CTF pwn box:
 
@@ -22,7 +24,7 @@ Recommended: **1 vCPU / 1GB RAM / 25GB disk** (~$6/month). The script creates 2G
 - **Emulation**: qemu-user, qemu-system-x86
 - **Python**: uv + Python 3.12, pwntools, ropper
 - **pwno-mcp**: cloned, synced, running as systemd service
-- **Claude Code**: installed with pwno-mcp registered as MCP server
+- **AI CLIs: Codex/Claude Code**: installed with pwno-mcp registered as MCP server
 - **Shell**: zsh with syntax highlighting + autosuggestions, tmux with custom config
 - **Extras**: pwninit, patchelf, elfutils
 
