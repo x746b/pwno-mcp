@@ -17,7 +17,7 @@ scp setup-droplet.sh root@<DROPLET_IP>:/root/
 ssh root@<DROPLET_IP> 'bash /root/setup-droplet.sh'
 ```
 
-Recommended: **1 vCPU / 1GB RAM / 25GB disk** (~$6/month). The script creates 2GB swap automatically.
+Recommended: **1 vCPU / 1GB RAM / 25GB disk** (~$0.006/hour). The script creates 2GB swap automatically.
 
 ### What it installs
 
