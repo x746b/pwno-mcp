@@ -88,8 +88,8 @@ See [README_orig.md](README_orig.md) for the full upstream documentation includi
 - Complete tool reference (set_file, breakpoints, stepping, memory, context, etc.)
 - MCP client configs for Claude Desktop, Cursor, OpenCode, Codex
 - Project structure and design decisions
+- Upstream docs site: [docs.pwno.io](https://docs.pwno.io)
 
 ## Upstream
 
-Synced with [pwno-io/pwno-mcp](https://github.com/pwno-io/pwno-mcp). Original project by [Pwno Team](https://pwno.io).
-
+Synced with [pwno-io/pwno-mcp](https://github.com/pwno-io/pwno-mcp) through upstream `v0.2.1` era changes. Original project by [Pwno Team](https://pwno.io).

@@ -119,7 +119,7 @@ async def run_attach_request(
 
 
 def create_attach_app(services: AppServices) -> FastAPI:
-    app = FastAPI(title="pwno-mcp attach", version="0.1.0")
+    app = FastAPI(title="pwno-mcp attach", version="0.2.0")
 
     @app.get("/")
     async def root():

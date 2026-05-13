@@ -17,6 +17,8 @@ import tempfile
 import time
 import re
 
+from pwnomcp.utils.paths import DEFAULT_WORKSPACE
+
 logger = logging.getLogger(__name__)
 
 
@@ -30,6 +32,120 @@ class SubprocessTools:
             tempfile.gettempdir(), "pwno", "processes"
         )
         os.makedirs(self.process_root, exist_ok=True)
+
+    def _is_under_workspace(self, path: str) -> bool:
+        workspace_root = os.path.normpath(DEFAULT_WORKSPACE)
+        candidate = os.path.normpath(path)
+        try:
+            return os.path.commonpath([workspace_root, candidate]) == workspace_root
+        except ValueError:
+            return False
+
+    @staticmethod
+    def _is_elf_file(path: str) -> bool:
+        if not os.path.isfile(path):
+            return False
+        try:
+            with open(path, "rb") as f:
+                return f.read(4) == b"\x7fELF"
+        except OSError:
+            return False
+
+    @staticmethod
+    def _resolve_candidate_executable(token: str, cwd: Optional[str]) -> Optional[str]:
+        if os.path.isabs(token):
+            return os.path.normpath(token)
+        if "/" in token:
+            base = cwd or os.getcwd()
+            return os.path.normpath(os.path.join(base, token))
+        return None
+
+    @staticmethod
+    def _is_python_executable(token: str) -> bool:
+        name = os.path.basename(token)
+        if name in {"python", "python3"}:
+            return True
+        return bool(re.fullmatch(r"python3\.\d+", name))
+
+    @staticmethod
+    def _guardrail_error(
+        command: str,
+        cwd: Optional[str],
+        error: str,
+        recommended_tool: str,
+    ) -> Dict[str, Any]:
+        return {
+            "success": False,
+            "command": command,
+            "error": error,
+            "type": "ToolUsageError",
+            "recommended_tool": recommended_tool,
+            "cwd": cwd or os.getcwd(),
+        }
+
+    def _check_command_guardrails(
+        self,
+        command: str,
+        cmd_parts: List[str],
+        cwd: Optional[str],
+        operation: str,
+    ) -> Optional[Dict[str, Any]]:
+        if not cmd_parts:
+            return None
+
+        executable = cmd_parts[0]
+
+        if self._is_python_executable(executable) and "-c" in cmd_parts:
+            return self._guardrail_error(
+                command=command,
+                cwd=cwd,
+                error=("Do not use 'python -c' here. Use execute_python_code."),
+                recommended_tool="execute_python_code",
+            )
+
+        if executable in {"sh", "bash", "/bin/sh", "/bin/bash"}:
+            inline_script = ""
+            script_index: Optional[int] = None
+            for i, arg in enumerate(cmd_parts[1:], start=1):
+                if not arg.startswith("-"):
+                    continue
+                if "c" in arg:
+                    script_index = i + 1
+                    break
+            if script_index is not None and script_index < len(cmd_parts):
+                inline_script = cmd_parts[script_index]
+            if re.search(r"\bpython(?:3(?:\.\d+)?)?\b\s+-c\b", inline_script):
+                return self._guardrail_error(
+                    command=command,
+                    cwd=cwd,
+                    error=(
+                        "Do not wrap 'python -c' in a shell command here. "
+                        "Use execute_python_code."
+                    ),
+                    recommended_tool="execute_python_code",
+                )
+
+        candidate = self._resolve_candidate_executable(executable, cwd)
+        if (
+            candidate
+            and self._is_under_workspace(candidate)
+            and self._is_elf_file(candidate)
+        ):
+            action = "run under debugger" if operation == "run_command" else "spawn"
+            workspace_root = os.path.normpath(DEFAULT_WORKSPACE)
+            return self._guardrail_error(
+                command=command,
+                cwd=cwd,
+                error=(
+                    f"Do not use {operation} to {action} a target ELF under "
+                    f"{workspace_root}. "
+                    "Use set_file + run (or attach). Use pwncli for interactive "
+                    "exploit-driver workflows."
+                ),
+                recommended_tool="set_file+run",
+            )
+
+        return None
 
     def run_command(
         self,
@@ -63,6 +179,14 @@ class SubprocessTools:
         try:
             # Parse command for safer execution
             cmd_parts = shlex.split(command)
+            guardrail_result = self._check_command_guardrails(
+                command=command,
+                cmd_parts=cmd_parts,
+                cwd=cwd,
+                operation="run_command",
+            )
+            if guardrail_result:
+                return guardrail_result
 
             # Prepare environment
             cmd_env = os.environ.copy()
@@ -127,15 +251,26 @@ class SubprocessTools:
             Dictionary with process information including PID
         """
         logger.info(f"Spawning process: {command}")
-        process_dir = tempfile.mkdtemp(prefix="proc_", dir=self.process_root)
-        stdout_path = os.path.join(process_dir, "stdout.log")
-        stderr_path = os.path.join(process_dir, "stderr.log")
-        stdout_file = open(stdout_path, "w+", encoding="utf-8")
-        stderr_file = open(stderr_path, "w+", encoding="utf-8")
+        stdout_file = None
+        stderr_file = None
 
         try:
             # Parse command
             cmd_parts = shlex.split(command)
+            guardrail_result = self._check_command_guardrails(
+                command=command,
+                cmd_parts=cmd_parts,
+                cwd=cwd,
+                operation="spawn_process",
+            )
+            if guardrail_result:
+                return guardrail_result
+
+            process_dir = tempfile.mkdtemp(prefix="proc_", dir=self.process_root)
+            stdout_path = os.path.join(process_dir, "stdout.log")
+            stderr_path = os.path.join(process_dir, "stderr.log")
+            stdout_file = open(stdout_path, "w+", encoding="utf-8")
+            stderr_file = open(stderr_path, "w+", encoding="utf-8")
 
             # Prepare environment
             cmd_env = os.environ.copy()
@@ -201,14 +336,16 @@ class SubprocessTools:
 
         except Exception as e:
             logger.error(f"Failed to spawn process: {e}")
-            try:
-                stdout_file.close()
-            except Exception:
-                pass
-            try:
-                stderr_file.close()
-            except Exception:
-                pass
+            if stdout_file:
+                try:
+                    stdout_file.close()
+                except Exception:
+                    pass
+            if stderr_file:
+                try:
+                    stderr_file.close()
+                except Exception:
+                    pass
             return {"success": False, "command": command, "error": str(e)}
 
     def get_process(self, pid: int) -> Dict[str, Any]:
