@@ -2,7 +2,7 @@
 
 Fork of [pwno-io/pwno-mcp](https://github.com/pwno-io/pwno-mcp) adapted for **bare-metal cloud deployment** without Docker.
 
-Runs GDB + pwndbg natively and exposes stateful debugging over MCP for agentic coding clients (Claude Code, Cursor, Codex, etc.).
+Runs GDB + pwndbg natively and exposes stateful debugging over MCP for agentic coding clients.
 
 ---
 
@@ -10,7 +10,7 @@ Runs GDB + pwndbg natively and exposes stateful debugging over MCP for agentic c
 
 https://github.com/x746b/pwno-mcp/blob/main/setup-droplet.sh
 
-Provision a fresh Ubuntu 24.04 droplet (DigitalOcean, etc.) as a fully configured CTF pwn box:
+Provision a fresh Ubuntu 24.04 droplet (DigitalOcean, Scaleway, etc.) as a fully configured CTF pwn box:
 
 ```bash
 scp setup-droplet.sh root@<DROPLET_IP>:/root/
