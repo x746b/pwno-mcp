@@ -3,6 +3,7 @@ from typing import Optional
 
 from fastmcp import FastMCP
 
+from pwnomcp import __version__
 from pwnomcp.http.health import register_health_routes
 from pwnomcp.lifespan import create_lifespan
 from pwnomcp.services import AppServices
@@ -35,6 +36,7 @@ session runtime directory."""
 def create_mcp(services: Optional[AppServices] = None) -> FastMCP:
     mcp = FastMCP(
         name="pwno-mcp",
+        version=__version__,
         instructions=build_server_instructions(services),
         lifespan=create_lifespan(services=services),
     )

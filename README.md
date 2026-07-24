@@ -4,6 +4,16 @@ Fork of [pwno-io/pwno-mcp](https://github.com/pwno-io/pwno-mcp) adapted for **ba
 
 Runs GDB + pwndbg natively and exposes stateful debugging over MCP for agentic coding clients.
 
+Current release: **v0.3.0**
+
+### v0.3.0 highlights
+
+- deterministic bare-metal deployment with configurable Git ref, workspace, and bind settings
+- post-deployment HTTP/MCP/runtime health verification
+- stable GDB startup with configurable debuginfod behavior
+- server-interpreter `pwncli` drivers with binary-safe I/O and structured exit events
+- MCP initialization and tool guidance designed for autonomous exploit workflows
+
 ---
 
 ## Cloud pwn/rev droplet
@@ -24,6 +34,8 @@ ssh root@<DROPLET_IP> \
   'PWNO_REF=<branch-tag-or-commit> INSTALL_CODEX=0 INSTALL_CLAUDE=0 bash -s' \
   < setup-droplet.sh
 ```
+
+For a reproducible v0.3.0 installation, set `PWNO_REF=v0.3.0`.
 
 Tested on:
 - DigitalOcean: s-1vcpu-1gb: 1 vCPU / 1GB RAM / 25GB disk (~$0.006/hour). The script creates 2GB swap automatically.

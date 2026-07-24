@@ -4,6 +4,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from fastapi import FastAPI
 
+from pwnomcp import __version__
 from pwnomcp.http.models import AttachRequest, AttachResponse
 from pwnomcp.services import AppServices
 from pwnomcp.tools.common import resolve_debug_session
@@ -119,7 +120,7 @@ async def run_attach_request(
 
 
 def create_attach_app(services: AppServices) -> FastAPI:
-    app = FastAPI(title="pwno-mcp attach", version="0.2.1")
+    app = FastAPI(title="pwno-mcp attach", version=__version__)
 
     @app.get("/")
     async def root():

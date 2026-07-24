@@ -12,6 +12,8 @@ from typing import Any, Sequence
 
 from fastmcp import Client
 
+from pwnomcp import __version__
+
 REQUIRED_MODULES = ("pwn", "pwncli")
 REQUIRED_TOOLS = {
     "create_debug_session",
@@ -38,6 +40,14 @@ def validate_runtime() -> None:
 async def check_server(url: str) -> dict[str, Any]:
     """Verify protocol negotiation, required tools, and interpreter identity."""
     async with Client(url, timeout=15) as client:
+        initialize_result = client.initialize_result
+        server_info = getattr(initialize_result, "serverInfo", None)
+        server_version = getattr(server_info, "version", None)
+        if server_version != __version__:
+            raise RuntimeError(
+                f"server version mismatch: server={server_version}, check={__version__}"
+            )
+
         tools = await client.list_tools()
         tool_names = {tool.name for tool in tools}
         missing_tools = sorted(REQUIRED_TOOLS - tool_names)
@@ -58,6 +68,7 @@ async def check_server(url: str) -> dict[str, Any]:
         return {
             "status": "ok",
             "url": url,
+            "server_version": server_version,
             "python_executable": server_python,
             "tool_count": len(tool_names),
         }

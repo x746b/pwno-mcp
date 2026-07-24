@@ -3,6 +3,7 @@ from types import SimpleNamespace
 import pytest
 from fastmcp import Client
 
+from pwnomcp import __version__
 from pwnomcp.server import build_server_instructions, create_mcp
 
 
@@ -17,6 +18,7 @@ async def test_server_instructions_explain_agent_workflow():
     async with Client(mcp) as client:
         assert client.initialize_result is not None
         assert client.initialize_result.instructions == instructions
+        assert client.initialize_result.serverInfo.version == __version__
 
     instructions = instructions.lower()
     assert "create_debug_session" in instructions
