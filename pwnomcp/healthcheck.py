@@ -24,6 +24,7 @@ REQUIRED_TOOLS = {
 
 def validate_runtime() -> None:
     """Raise when exploit-driver dependencies cannot be imported."""
+    os.environ.setdefault("PWNLIB_NOTERM", "1")
     failures = []
     for module in REQUIRED_MODULES:
         try:

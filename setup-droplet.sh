@@ -189,7 +189,7 @@ wait_for_pwno_mcp() {
   fi
 
   for ((attempt = 1; attempt <= PWNO_HEALTH_RETRIES; attempt++)); do
-    if curl -fsS "$health_url/healthz" | jq -e '.status == "ok"' >/dev/null \
+    if curl -fs "$health_url/healthz" | jq -e '.status == "ok"' >/dev/null \
       && "$PWNO_DIR/.venv/bin/python" -m pwnomcp.healthcheck \
         --url "$health_url/mcp"; then
       return 0
