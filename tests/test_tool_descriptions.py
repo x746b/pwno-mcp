@@ -40,6 +40,7 @@ async def test_python_execution_tool_guidance_in_descriptions():
     assert "branch/tag/commit" in descriptions["fetch_repo"]
     assert "equivalent to --start" in descriptions["run"]
     assert "does not append a newline" in descriptions["sendinput"]
+    assert "base64-encoded bytes" in descriptions["sendinput"]
     assert "0xdeadbeef" in descriptions["get_memory"]
 
     assert "pwncli_attach_result" in descriptions["pwncli"]

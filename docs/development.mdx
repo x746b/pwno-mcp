@@ -12,7 +12,7 @@ Prerequisites on the host are Python 3.12+, GDB with Python support, and a worki
 <CodeGroup>
 
 ```bash uv
-uv sync
+uv sync --extra dev
 uv run python -m pwnomcp
 uv run python -m pwnomcp --stdio
 ```
@@ -28,9 +28,9 @@ python -m pwnomcp --stdio
 ## Verification commands
 
 ```bash
-uv run black --check .
-uv run mypy pwnomcp --ignore-missing-imports --disable-error-code=import-untyped
-uv run pytest -v
+uv run --extra dev black --check .
+uv run --extra dev mypy pwnomcp
+uv run --extra dev pytest -v
 ```
 
 ## Docs preview

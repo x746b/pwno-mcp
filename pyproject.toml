@@ -4,11 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pwno-mcp"
-version = "0.2.0"
+version = "0.2.1"
 description = "MCP server for autonomous low-level security research with pwndbg"
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
-license = {file = "LICENSE"}
+license = "CC-BY-NC-ND-4.0"
+license-files = ["LICENSE"]
 authors = [
     {name = "Pwno Team"},
 ]
@@ -20,6 +21,7 @@ dependencies = [
     "fastapi>=0.100.0",
     "uvicorn>=0.23.0",
     "pwntools>=4.14.1",
+    "pwncli @ git+https://github.com/pwno-io/pwnocli.git@a365225ae6fb0e23399b084359b2e6ccca443cbd",
     "requests>=2.31.0",
 ]
 
@@ -29,8 +31,9 @@ dev = [
     "pytest-asyncio",
     "black",
     "mypy",
+    "types-psutil",
+    "types-requests",
 ]
 
-[tool.setuptools]
-# Automatically discover all packages and subpackages
-packages = { find = {} }
+[tool.setuptools.packages.find]
+include = ["pwnomcp*"]

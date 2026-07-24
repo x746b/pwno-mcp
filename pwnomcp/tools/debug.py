@@ -1,3 +1,4 @@
+import sys
 from typing import Any, Dict, List, Optional, Tuple
 
 from fastmcp import Context, FastMCP
@@ -340,4 +341,10 @@ def register(mcp: FastMCP) -> None:
         )
         result["session_id"] = session.session_id
         result["runtime_dir"] = session.runtime_dir
+        result["workspace_root"] = services.runtime_paths.workspace_root
+        result["runtime_root"] = services.runtime_paths.runtime_root
+        result["python_executable"] = sys.executable
+        result["shared_python_executable"] = (
+            services.python_tools.get_python_executable()
+        )
         return result

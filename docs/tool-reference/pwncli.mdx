@@ -7,7 +7,7 @@ Use the `pwncli` family when you want an interactive exploit driver that stays a
 
 ## `pwncli`
 
-`pwncli` writes the provided script into the session runtime directory, launches it with `uv run`, and exposes both startup output and any parsed attach result marker.
+`pwncli` writes the provided script into the session runtime directory, launches it with the same locked Python environment as the MCP server, and exposes both startup output and any parsed attach result marker.
 
 ```json
 {"tool":"pwncli","arguments":{"session_id":"chal-a","binary_path":"/workspace/chal","file":"from pwn import *\nprint('ready')\n"}}
@@ -17,6 +17,7 @@ Use the `pwncli` family when you want an interactive exploit driver that stays a
 
 - `runtime_dir`: session-specific directory used for the inline script
 - `io.current_output`: output collected for this call
+- `io.current_output_b64`: the same output as exact base64-encoded bytes
 - `attachment.result`: parsed attach result marker when present
 - `startup.ready`: whether the driver reached a ready state
 - `startup.reason`: why the wait finished
@@ -28,17 +29,23 @@ Use the `pwncli` family when you want an interactive exploit driver that stays a
 
 ```json
 {"tool":"sendinput","arguments":{"session_id":"chal-a","data":"AAAA\n"}}
+{"tool":"sendinput","arguments":{"session_id":"chal-a","data":"","data_b64":"/wBB"}}
 {"tool":"checkoutput","arguments":{"session_id":"chal-a"}}
 {"tool":"checkevents","arguments":{"session_id":"chal-a"}}
 ```
 
-- `sendinput` writes raw bytes to stdin
-- `checkoutput` returns buffered output and clears it
+- `sendinput` writes UTF-8 text with `data`, or exact bytes with `data_b64`
+- `checkoutput` returns buffered display text plus `output_b64`, then clears it
 - `checkevents` returns structured events plus `alive`, `exit_code`, and `driver_pid`
 
 <Warning>
   `sendinput` does not append a newline automatically.
 </Warning>
+
+<Tip>
+  Use `data_b64` for exploit payloads containing NUL bytes, non-UTF-8 bytes, or
+  other values that must survive transport unchanged.
+</Tip>
 
 ## Session management tools
 

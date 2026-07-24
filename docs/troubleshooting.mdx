@@ -18,6 +18,9 @@ Start with the symptom that best matches what you are seeing.
   <Accordion title="The server says the binary path was not found">
     Use container-visible paths such as `/workspace/chal`, and make sure the host file exists inside the mounted `./workspace` directory.
   </Accordion>
+  <Accordion title="The pwncli driver reports missing Python modules">
+    Run `uv sync --frozen` in the pwno-mcp project environment and restart the server. The driver intentionally uses the same interpreter as the MCP server, and its error response includes that interpreter path and the missing module names.
+  </Accordion>
   <Accordion title="The server says no binary is loaded">
     Call `set_file` before `run`, or use `attach` when the process is already running.
   </Accordion>

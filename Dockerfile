@@ -54,17 +54,13 @@ ENV PYTHONPATH=/app
 ENV UV_PROJECT_ENVIRONMENT=/app/.venv
 ENV PATH="/app/.venv/bin:$PATH"
 
-RUN uv sync
-
-# Install pwnocli and deps in the project environment used by `uv run`
-RUN uv pip install --python /app/.venv \
-      pwntools ropper git+https://github.com/pwno-io/pwnocli.git
+RUN uv sync --frozen
 
 # Pre-create the shared PythonTools venv used by Pwno MCP to avoid runtime setup
 RUN mkdir -p /tmp/pwno/python && \
     uv venv /tmp/pwno/python/shared_venv && \
     uv pip install --python /tmp/pwno/python/shared_venv \
-      requests numpy ipython hexdump pwntools ropper git+https://github.com/pwno-io/pwnocli.git
+      requests numpy ipython hexdump pwntools ropper
 
 ENV PROD=true
 

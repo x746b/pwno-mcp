@@ -1,5 +1,9 @@
+import base64
+import binascii
+import importlib.util
 import os
 import shlex
+import sys
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -18,6 +22,26 @@ from pwnomcp.tools.common import (
     run_blocking,
 )
 
+DRIVER_MODULES = ("pwn", "pwncli")
+
+
+def missing_driver_modules() -> List[str]:
+    """Return required exploit-driver modules missing from the server venv."""
+    return [name for name in DRIVER_MODULES if importlib.util.find_spec(name) is None]
+
+
+def build_driver_command(
+    script_path: str, resolved_binary: str, argument: str = ""
+) -> List[str]:
+    """Build a shell-free driver command using the MCP server interpreter."""
+    return [
+        sys.executable,
+        script_path,
+        "debug",
+        resolved_binary,
+        *shlex.split(argument),
+    ]
+
 
 def register(mcp: FastMCP) -> None:
     @mcp.tool()
@@ -34,7 +58,7 @@ def register(mcp: FastMCP) -> None:
 
         Behavior:
         - Writes the provided script content to a per-session runtime directory
-        - Launches: uv run <session-script> debug <resolved binary> <argument>
+        - Launches the script with the MCP server's managed Python environment
         - Maintains one PwnPipe per debug session
         - Detects a single-line marker printed by pwncli after attach:
           "PWNCLI_ATTACH_RESULT:{...json...}" and exposes it as attachment.result
@@ -69,6 +93,17 @@ def register(mcp: FastMCP) -> None:
         )
         resolved_binary = resolve_binary_path(binary_path, session, require_exists=True)
 
+        missing = missing_driver_modules()
+        if missing:
+            return {
+                "success": False,
+                "session_id": session.session_id,
+                "error": "Exploit-driver dependencies are unavailable",
+                "missing_modules": missing,
+                "python_executable": sys.executable,
+                "hint": "Install the locked project dependencies and restart pwno-mcp.",
+            }
+
         runtime_dir = session.runtime_dir
         os.makedirs(runtime_dir, exist_ok=True)
         script_path = os.path.join(runtime_dir, f"exp_{int(time.time() * 1000)}.py")
@@ -84,9 +119,7 @@ def register(mcp: FastMCP) -> None:
                 replaced = True
             services.pwnpipe_sessions.pop(session.session_id, None)
 
-            cmd = (
-                f"uv run {shlex.quote(script_path)} debug {shlex.quote(resolved_binary)} {argument}"
-            ).strip()
+            cmd = build_driver_command(script_path, resolved_binary, argument)
             pipe = PwnPipe(
                 command=cmd,
                 cwd=os.path.dirname(resolved_binary),
@@ -99,22 +132,25 @@ def register(mcp: FastMCP) -> None:
         if old_pipe and old_pipe.is_alive():
             old_pipe.kill()
 
-        def _collect_startup() -> Tuple[Dict[str, Any], str, Any]:
+        def _collect_startup() -> Tuple[Dict[str, Any], bytes, Any]:
             startup_result = pipe.wait_ready(timeout=wait_timeout)
-            output_result = pipe.release()
+            output_result = pipe.release_bytes()
             attach_result_value = pipe.get_attach_result()
             return startup_result, output_result, attach_result_value
 
         startup, output, attach_result = await run_blocking(_collect_startup)
 
         return {
+            "success": bool(startup.get("ready")),
             "session_id": session.session_id,
             "runtime_dir": runtime_dir,
             "binary_path": resolved_binary,
+            "python_executable": sys.executable,
             "io": {
-                "pipeinput": True,
+                "pipeinput": pipe.is_alive(),
                 "pipeoutput": True,
-                "current_output": output,
+                "current_output": output.decode("utf-8", errors="replace"),
+                "current_output_b64": base64.b64encode(output).decode("ascii"),
             },
             "attachment": {
                 "result": attach_result,
@@ -124,6 +160,7 @@ def register(mcp: FastMCP) -> None:
                 "reason": startup.get("reason"),
                 "wait_ms": startup.get("wait_ms"),
                 "alive": pipe.is_alive(),
+                "exit_code": pipe.get_exit_code(),
                 "pid": driver_pid,
                 "replaced": replaced,
             },
@@ -132,8 +169,9 @@ def register(mcp: FastMCP) -> None:
     @mcp.tool()
     @catch_errors()
     async def sendinput(
-        data: str,
         session_id: str,
+        data: str = "",
+        data_b64: Optional[str] = None,
         ctx: Context = CurrentContext(),
     ) -> Dict[str, Any]:
         """Send raw input to a session-scoped pwncli process stdin.
@@ -143,13 +181,33 @@ def register(mcp: FastMCP) -> None:
             "\n" yourself.
 
         Args:
-            data: Raw text to write to stdin.
+            data: UTF-8 text to write to stdin.
+            data_b64: Optional base64-encoded bytes for binary-safe input. Do not
+                provide non-empty data when using data_b64.
 
         Returns:
             { "success": bool } indicating whether the input was written successfully.
         """
         services = get_services(ctx)
         resolved_session_id, pipe = get_pwnpipe(services, session_id=session_id)
+        if data_b64 is not None and data:
+            return {
+                "success": False,
+                "session_id": resolved_session_id,
+                "error": "Provide either data or data_b64, not both",
+            }
+        try:
+            payload = (
+                base64.b64decode(data_b64, validate=True)
+                if data_b64 is not None
+                else data.encode("utf-8")
+            )
+        except (binascii.Error, ValueError) as exc:
+            return {
+                "success": False,
+                "session_id": resolved_session_id,
+                "error": f"Invalid base64 input: {exc}",
+            }
         with services.pwnpipe_lock:
             if not pipe.is_alive():
                 return {
@@ -157,8 +215,12 @@ def register(mcp: FastMCP) -> None:
                     "session_id": resolved_session_id,
                     "error": "No active PwnPipe",
                 }
-            ok = pipe.send(data)
-        return {"success": bool(ok), "session_id": resolved_session_id}
+            ok = pipe.send(payload)
+        return {
+            "success": bool(ok),
+            "session_id": resolved_session_id,
+            "bytes_sent": len(payload) if ok else 0,
+        }
 
     @mcp.tool()
     @catch_errors()
@@ -169,15 +231,19 @@ def register(mcp: FastMCP) -> None:
         """Release and return accumulated output from a session PwnPipe.
 
         Returns:
-            { "success": True, "output": str } on success, or a failure object when no
-            pipe exists. The internal buffer is cleared by this call (subsequent calls only
-            return new output).
+            Display-safe output plus exact output_b64 bytes, or a failure object
+            when no pipe exists. The internal buffer is cleared by this call.
         """
         services = get_services(ctx)
         resolved_session_id, pipe = get_pwnpipe(services, session_id=session_id)
         with services.pwnpipe_lock:
-            out = pipe.release()
-        return {"success": True, "session_id": resolved_session_id, "output": out}
+            out = pipe.release_bytes()
+        return {
+            "success": True,
+            "session_id": resolved_session_id,
+            "output": out.decode("utf-8", errors="replace"),
+            "output_b64": base64.b64encode(out).decode("ascii"),
+        }
 
     @mcp.tool()
     @catch_errors()
@@ -224,8 +290,8 @@ def register(mcp: FastMCP) -> None:
                     "error": "No active PwnPipe",
                 }
             was_alive = pipe.is_alive()
-            exit_code = pipe.get_exit_code()
             pipe.kill()
+            exit_code = pipe.get_exit_code()
         session = require_session_registry(services).get_session(resolved_session_id)
         if session:
             session.driver_pid = None

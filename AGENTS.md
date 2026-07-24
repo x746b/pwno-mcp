@@ -13,7 +13,7 @@ Guide for agentic coding tools working in this repository.
 Use uv when available (matches Dockerfile).
 
 ```bash
-uv sync
+uv sync --extra dev
 ```
 
 Alternative (pip):
@@ -54,35 +54,35 @@ No config files are present, so tools use defaults.
 
 Format (Black default settings):
 ```bash
-python -m black .
+uv run --extra dev black .
 ```
 
 Type-check (mypy defaults):
 ```bash
-python -m mypy pwnomcp
+uv run --extra dev mypy pwnomcp
 ```
 
 ## Tests
-There are no tests in the repo right now, but pytest is in dev deps.
+Pytest coverage lives under `tests/` and is installed through the dev extra.
 
 Run all tests (if/when added):
 ```bash
-python -m pytest
+uv run --extra dev pytest
 ```
 
 Run a single test file:
 ```bash
-python -m pytest path/to/test_file.py
+uv run --extra dev pytest path/to/test_file.py
 ```
 
 Run a single test case:
 ```bash
-python -m pytest path/to/test_file.py::TestClass::test_name
+uv run --extra dev pytest path/to/test_file.py::TestClass::test_name
 ```
 
 Run by keyword match:
 ```bash
-python -m pytest -k "keyword"
+uv run --extra dev pytest -k "keyword"
 ```
 
 ## Code style guidelines

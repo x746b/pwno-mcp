@@ -15,7 +15,7 @@
 #   4. Installs pwndbg (GDB plugin)
 #   5. Installs uv (Python package manager) + Python 3.12
 #   6. Clones & sets up pwno-mcp with all dependencies
-#   7. Creates shared Python venv with pwntools/ropper/pwnocli
+#   7. Creates a shared analysis venv with pwntools/ropper
 #   8. Configures pwno-mcp as systemd service
 #   9. Installs/configures Codex CLI by default
 #  10. Optionally installs/configures Claude Code
@@ -607,18 +607,9 @@ fi
 # Install Python 3.12 via uv (matches pyproject.toml >=3.12,<3.14)
 uv python install 3.12
 
-# Sync project dependencies
+# Sync the complete, locked project environment used by pwno-mcp and pwncli.
 export UV_PROJECT_ENVIRONMENT="$PWNO_DIR/.venv"
-uv sync --directory "$PWNO_DIR"
-
-# Install extra tools in the project venv
-uv pip install --python "$PWNO_DIR/.venv" \
-  pwntools ropper 2>/dev/null || true
-
-# Attempt pwnocli (may fail if repo is private/unavailable)
-uv pip install --python "$PWNO_DIR/.venv" \
-  "git+https://github.com/pwno-io/pwnocli.git" 2>/dev/null || \
-  echo "pwnocli install skipped (not available)"
+uv sync --frozen --directory "$PWNO_DIR"
 
 # ── 7. Pre-create shared Python venv (used by pwno-mcp at runtime) ──
 log "Creating shared Python venv for pwno-mcp runtime"
