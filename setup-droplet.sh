@@ -638,7 +638,8 @@ WorkingDirectory=$PWNO_DIR
 Environment=PYTHONPATH=$PWNO_DIR
 Environment=UV_PROJECT_ENVIRONMENT=$PWNO_DIR/.venv
 Environment=PWNO_WORKSPACE=$WORKSPACE
-Environment=PATH=/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=TERM=xterm-256color
+Environment=PATH=$PWNO_DIR/.venv/bin:/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ExecStart=$PWNO_DIR/.venv/bin/python -m pwnomcp --host $PWNO_HOST --port $PWNO_PORT --workspace $WORKSPACE
 Restart=on-failure
 RestartSec=2
@@ -649,7 +650,7 @@ UNIT
 
 systemctl daemon-reload
 systemctl enable pwnomcp
-systemctl start pwnomcp || echo "Service start failed — check: journalctl -u pwnomcp -e"
+systemctl restart pwnomcp || echo "Service restart failed — check: journalctl -u pwnomcp -e"
 
 # ── 10. Codex CLI ────────────────────────────────────────────────────
 if [[ "$INSTALL_CODEX" == "1" ]]; then

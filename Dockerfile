@@ -53,6 +53,7 @@ USER pwno
 ENV PYTHONPATH=/app
 ENV UV_PROJECT_ENVIRONMENT=/app/.venv
 ENV PATH="/app/.venv/bin:$PATH"
+ENV TERM=xterm-256color
 
 RUN uv sync --frozen
 
