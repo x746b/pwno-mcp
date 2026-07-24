@@ -57,12 +57,15 @@ def register(mcp: FastMCP) -> None:
         """Run a pwncli exploit script for a specific debug session.
 
         Behavior:
+        - Requires an existing debug session; call create_debug_session first
         - Writes the provided script content to a per-session runtime directory
         - Launches the script with the MCP server's managed Python environment
         - Maintains one PwnPipe per debug session
         - Detects a single-line marker printed by pwncli after attach:
           "PWNCLI_ATTACH_RESULT:{...json...}" and exposes it as attachment.result
         - Waits up to wait_timeout seconds for attach/output/exit before returning
+        - Startup readiness is not process completion; if startup.alive is true,
+          continue with sendinput, checkoutput, and checkevents
         - Stores inline script content in session runtime state; only create persistent
           /workspace scripts when the user explicitly requests it
 
@@ -230,6 +233,10 @@ def register(mcp: FastMCP) -> None:
     ) -> Dict[str, Any]:
         """Release and return accumulated output from a session PwnPipe.
 
+        This drains the output buffer. Empty output does not mean the process exited;
+        use checkevents and inspect alive/exit_code for lifecycle state.
+        Decode output_b64 instead of output when exact bytes matter.
+
         Returns:
             Display-safe output plus exact output_b64 bytes, or a failure object
             when no pipe exists. The internal buffer is cleared by this call.
@@ -252,6 +259,10 @@ def register(mcp: FastMCP) -> None:
         ctx: Context = CurrentContext(),
     ) -> Dict[str, Any]:
         """Release and return structured events from a session PwnPipe.
+
+        This drains the event queue. Poll until exit_code is non-null or alive is
+        false when waiting for completion. Output events have type out/err plus
+        display-safe data and exact data_b64; exit events have type exit and code.
 
         Returns:
             {"success": True, "events": [...], "alive": bool, "exit_code": int|None}

@@ -66,6 +66,11 @@ def register(mcp: FastMCP) -> None:
     ) -> Dict[str, Any]:
         """Execute an arbitrary GDB/pwndbg command.
 
+        Deployment note:
+            Debuginfod defaults to off for deterministic CTF sessions. Only enable
+            it when external debug symbols are necessary because downloads can make
+            GDB calls exceed MCP timeouts.
+
         Args:
             command: Raw GDB/pwndbg command to execute (e.g., "info registers", "vmmap").
 
