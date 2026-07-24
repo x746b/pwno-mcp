@@ -10,7 +10,7 @@ Start with the symptom that best matches what you are seeing.
     Confirm the container publishes `-p 5500:5500` and that the client URL is exactly `http://127.0.0.1:5500/mcp` unless you changed the defaults.
   </Accordion>
   <Accordion title="My health check fails">
-    Point health checks at `http://127.0.0.1:5500/healthz`. The attach sidecar is a separate service and is not the health endpoint.
+    Point HTTP health checks at `http://127.0.0.1:5500/healthz`. For a full protocol and runtime check, run `/opt/pwno-mcp/.venv/bin/python -m pwnomcp.healthcheck --url http://127.0.0.1:5500/mcp`. The attach sidecar is a separate service and is not the health endpoint.
   </Accordion>
   <Accordion title="I get ptrace or attach permission errors">
     Keep `SYS_PTRACE`, `SYS_ADMIN`, and unconfined seccomp and apparmor settings on the container.
@@ -20,6 +20,9 @@ Start with the symptom that best matches what you are seeing.
   </Accordion>
   <Accordion title="The pwncli driver reports missing Python modules">
     Run `uv sync --frozen` in the pwno-mcp project environment and restart the server. The driver intentionally uses the same interpreter as the MCP server, and its error response includes that interpreter path and the missing module names.
+  </Accordion>
+  <Accordion title="GDB times out while downloading debug data">
+    Droplet deployments disable debuginfod by default to keep startup deterministic. Set `PWNO_GDB_DEBUGINFOD=on` before running `setup-droplet.sh` only when remote debug symbols are useful and the additional startup latency is acceptable.
   </Accordion>
   <Accordion title="The server says no binary is loaded">
     Call `set_file` before `run`, or use `attach` when the process is already running.

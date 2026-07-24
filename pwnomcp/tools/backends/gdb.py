@@ -7,11 +7,11 @@ immediate responses suitable for LLM interaction.
 """
 
 import logging
-import time
-from typing import List, Dict, Optional, Any, Tuple
-from pathlib import Path
-from pygdbmi import gdbcontroller
 import os
+import time
+from typing import Any, Dict, List, Optional, Tuple
+
+from pygdbmi import gdbcontroller
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +64,14 @@ class GdbController:
             "-gdb-set follow-exec-mode same",
         ]:
             results.append(self.execute_mi_command(setting))
+
+        debuginfod = os.environ.get("PWNO_GDB_DEBUGINFOD", "off").strip().lower()
+        if debuginfod not in {"on", "off", "ask"}:
+            logger.warning(
+                "Invalid PWNO_GDB_DEBUGINFOD=%r; defaulting to off", debuginfod
+            )
+            debuginfod = "off"
+        results.append(self.execute_command(f"set debuginfod enabled {debuginfod}"))
 
         # Ensure pwndbg is active (optional; comment out if too slow in your env)
         # pwndbg_check = self.execute_command("pwndbg")

@@ -5,6 +5,7 @@
 #
 # Usage:
 #   ssh root@<DROPLET_IP> 'bash -s' < setup-droplet.sh
+#   ssh root@<DROPLET_IP> 'PWNO_REF=<branch-or-commit> bash -s' < setup-droplet.sh
 #   # or copy to droplet and run:
 #   chmod +x setup-droplet.sh && ./setup-droplet.sh
 #
@@ -24,17 +25,33 @@
 set -euo pipefail
 
 # ── Configuration ────────────────────────────────────────────────────
-PWNO_REPO="https://github.com/x746b/pwno-mcp.git"
-PWNO_DIR="/opt/pwno-mcp"
-WORKSPACE="/root/ctf"
-PWNO_USER="root"          # run as root for ptrace/debugging ease on CTF box
-PWNO_HOST="127.0.0.1"     # bind locally; access via SSH tunnel
-PWNO_PORT="5500"
+PWNO_REPO="${PWNO_REPO:-https://github.com/x746b/pwno-mcp.git}"
+PWNO_REF="${PWNO_REF:-main}"
+PWNO_DIR="${PWNO_DIR:-/opt/pwno-mcp}"
+WORKSPACE="${WORKSPACE:-/root/ctf}"
+PWNO_USER="${PWNO_USER:-root}"          # root simplifies ptrace on disposable CTF boxes
+PWNO_HOST="${PWNO_HOST:-127.0.0.1}"     # bind locally; access via SSH tunnel
+PWNO_PORT="${PWNO_PORT:-5500}"
+PWNO_GDB_DEBUGINFOD="${PWNO_GDB_DEBUGINFOD:-off}"
+PWNO_HEALTH_RETRIES="${PWNO_HEALTH_RETRIES:-30}"
 CODEX_HOME="${CODEX_HOME:-/root/.codex}"
 CODEX_VERSION="${CODEX_VERSION:-rust-v0.130.0}"
 PWNINIT_VERSION="${PWNINIT_VERSION:-3.3.1}"
 INSTALL_CODEX="${INSTALL_CODEX:-}"
 INSTALL_CLAUDE="${INSTALL_CLAUDE:-}"
+
+case "$PWNO_GDB_DEBUGINFOD" in
+  on|off|ask) ;;
+  *)
+    echo "PWNO_GDB_DEBUGINFOD must be one of: on, off, ask" >&2
+    exit 2
+    ;;
+esac
+
+if [[ ! "$PWNO_HEALTH_RETRIES" =~ ^[1-9][0-9]*$ ]]; then
+  echo "PWNO_HEALTH_RETRIES must be a positive integer" >&2
+  exit 2
+fi
 
 log() { printf '\n\033[1;36m>>> %s\033[0m\n' "$*"; }
 
@@ -135,6 +152,55 @@ install_codex_release() {
 
   install -m 0755 "$extracted" /usr/local/bin/codex
   rm -rf "$tmp_dir"
+}
+
+checkout_pwno_ref() {
+  local remote_ref="refs/remotes/origin/$PWNO_REF"
+
+  git -C "$PWNO_DIR" remote set-url origin "$PWNO_REPO"
+  if git -C "$PWNO_DIR" ls-remote --exit-code --heads origin "$PWNO_REF" \
+    >/dev/null; then
+    git -C "$PWNO_DIR" fetch origin \
+      "+refs/heads/$PWNO_REF:$remote_ref"
+    if git -C "$PWNO_DIR" show-ref --verify --quiet "refs/heads/$PWNO_REF"; then
+      git -C "$PWNO_DIR" checkout "$PWNO_REF"
+    else
+      git -C "$PWNO_DIR" checkout --track -b "$PWNO_REF" "origin/$PWNO_REF"
+    fi
+    git -C "$PWNO_DIR" merge --ff-only "origin/$PWNO_REF"
+  else
+    git -C "$PWNO_DIR" fetch origin "$PWNO_REF"
+    git -C "$PWNO_DIR" checkout --detach FETCH_HEAD
+  fi
+}
+
+wait_for_pwno_mcp() {
+  local health_host="$PWNO_HOST"
+  local health_url
+  local attempt
+
+  case "$health_host" in
+    0.0.0.0|::) health_host="127.0.0.1" ;;
+  esac
+  if [[ "$health_host" == *:* ]]; then
+    health_url="http://[$health_host]:$PWNO_PORT"
+  else
+    health_url="http://$health_host:$PWNO_PORT"
+  fi
+
+  for ((attempt = 1; attempt <= PWNO_HEALTH_RETRIES; attempt++)); do
+    if curl -fsS "$health_url/healthz" | jq -e '.status == "ok"' >/dev/null \
+      && "$PWNO_DIR/.venv/bin/python" -m pwnomcp.healthcheck \
+        --url "$health_url/mcp"; then
+      return 0
+    fi
+    sleep 1
+  done
+
+  echo "pwno-mcp failed its health check after $PWNO_HEALTH_RETRIES attempts" >&2
+  systemctl --no-pager --full status pwnomcp >&2 || true
+  journalctl -u pwnomcp --no-pager -n 80 >&2 || true
+  return 1
 }
 
 prompt_cli_selection
@@ -598,11 +664,11 @@ fi
 # ── 6. Clone & set up pwno-mcp ──────────────────────────────────────
 log "Setting up pwno-mcp"
 if [[ -d "$PWNO_DIR/.git" ]]; then
-  echo "pwno-mcp already cloned at $PWNO_DIR, pulling latest"
-  git -C "$PWNO_DIR" pull --ff-only || true
+  echo "pwno-mcp already cloned at $PWNO_DIR, updating $PWNO_REF"
 else
   git clone "$PWNO_REPO" "$PWNO_DIR"
 fi
+checkout_pwno_ref
 
 # Install Python 3.12 via uv (matches pyproject.toml >=3.12,<3.14)
 uv python install 3.12
@@ -638,6 +704,7 @@ WorkingDirectory=$PWNO_DIR
 Environment=PYTHONPATH=$PWNO_DIR
 Environment=UV_PROJECT_ENVIRONMENT=$PWNO_DIR/.venv
 Environment=PWNO_WORKSPACE=$WORKSPACE
+Environment=PWNO_GDB_DEBUGINFOD=$PWNO_GDB_DEBUGINFOD
 Environment=TERM=xterm-256color
 Environment=PATH=$PWNO_DIR/.venv/bin:/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ExecStart=$PWNO_DIR/.venv/bin/python -m pwnomcp --host $PWNO_HOST --port $PWNO_PORT --workspace $WORKSPACE
@@ -650,7 +717,10 @@ UNIT
 
 systemctl daemon-reload
 systemctl enable pwnomcp
-systemctl restart pwnomcp || echo "Service restart failed — check: journalctl -u pwnomcp -e"
+systemctl restart pwnomcp
+
+log "Verifying pwno-mcp service and MCP protocol"
+wait_for_pwno_mcp
 
 # ── 10. Codex CLI ────────────────────────────────────────────────────
 if [[ "$INSTALL_CODEX" == "1" ]]; then

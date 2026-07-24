@@ -21,7 +21,28 @@ This page covers the main knobs exposed by `pwno-mcp` itself.
 | Variable | Purpose |
 | --- | --- |
 | `PWNO_RUNTIME_ROOT` | override the root directory for session runtime data, process logs, and shared helper artifacts |
+| `PWNO_GDB_DEBUGINFOD` | control GDB debuginfod downloads with `on`, `off`, or `ask`; defaults to `off` |
 | `BINARY_URL` | enables lazy RetDec analysis against an externally reachable binary URL |
+
+## Droplet setup variables
+
+`setup-droplet.sh` accepts environment overrides for repeatable deployments:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `PWNO_REPO` | official GitHub repository | Git clone/fetch source |
+| `PWNO_REF` | `main` | branch, tag, or commit to deploy |
+| `PWNO_DIR` | `/opt/pwno-mcp` | installation directory |
+| `WORKSPACE` | `/root/ctf` | binary workspace |
+| `PWNO_USER` | `root` | systemd service user |
+| `PWNO_HOST` | `127.0.0.1` | HTTP bind host |
+| `PWNO_PORT` | `5500` | HTTP bind port |
+| `PWNO_GDB_DEBUGINFOD` | `off` | GDB debuginfod mode |
+| `PWNO_HEALTH_RETRIES` | `30` | one-second startup health-check attempts |
+
+After restarting systemd, the script verifies `/healthz`, negotiates an MCP
+connection, checks required tools, imports exploit-driver dependencies, and confirms
+that the server uses the project virtual environment.
 
 ## Example launches
 
